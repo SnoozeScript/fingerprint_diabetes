@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Fingerprint - Diabetes Prediction{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h2 class="mb-0">
+                        <i class="bi bi-fingerprint"></i> Diabetes Risk Prediction
+                    </h2>
+                    <p class="mb-0 mt-2">Upload your fingerprint and health information for AI-powered risk assessment</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" id="predictionForm">
+                        {% csrf_token %}
+                        
+                        <!-- Fingerprint Upload Section -->
+                        <div class="mb-4">
+                            <h5 class="text-primary mb-3">
+                                <i class="bi bi-camera"></i> Step 1: Upload Fingerprint Image
+                            </h5>
+                            
+                            <div class="upload-area" id="uploadArea">
+                                <i class="bi bi-cloud-upload feature-icon"></i>
+                                <h6>Drop your fingerprint image here or click to browse</h6>
+                                <p class="text-muted mb-0">Supported formats: JPEG, PNG (Max size: 5MB)</p>
+                                {{ form.fingerprint_image }}
+                            </div>
+                            
+                            <div id="imagePreview" class="mt-3 text-center" style="display: none;">
+                                <img id="previewImg" src="" alt="Preview" class="img-thumbnail" style="max-width: 300px;">
+                                <p class="mt-2 text-success">
+                                    <i class="bi bi-check-circle"></i> Image uploaded successfully
+                                </p>
+                            </div>
+                            
+                            {% if form.fingerprint_image.errors %}
+                                <div class="text-danger mt-2">
+                                    {% for error in form.fingerprint_image.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <hr>
+
+                        <!-- Health Information Section -->
+                        <div class="mb-4">
+                            <h5 class="text-primary mb-3">
+                                <i class="bi bi-heart-pulse"></i> Step 2: Health Information
+                            </h5>
+                            
+                            <div class="row">
+                                <!-- Age and Gender -->
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.age.id_for_label }}" class="form-label">{{ form.age.label }}</label>
+                                    {{ form.age }}
+                                    {% if form.age.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.age.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.gender.id_for_label }}" class="form-label">{{ form.gender.label }}</label>
+                                    {{ form.gender }}
+                                    {% if form.gender.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.gender.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- BMI -->
+                            <div class="mb-3">
+                                <label for="{{ form.bmi.id_for_label }}" class="form-label">
+                                    {{ form.bmi.label }}
+                                    <a href="{% url 'fingerprint_pred:bmi_calculator' %}" class="btn btn-sm btn-outline-info ms-2" target="_blank">
+                                        <i class="bi bi-calculator"></i> Calculate BMI
+                                    </a>
+                                </label>
+                                {{ form.bmi }}
+                                <div class="form-text">{{ form.bmi.help_text }}</div>
+                                {% if form.bmi.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.bmi.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Blood Pressure -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.blood_pressure_systolic.id_for_label }}" class="form-label">
+                                        {{ form.blood_pressure_systolic.label }}
+                                    </label>
+                                    {{ form.blood_pressure_systolic }}
+                                    <div class="form-text">{{ form.blood_pressure_systolic.help_text }}</div>
+                                    {% if form.blood_pressure_systolic.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.blood_pressure_systolic.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.blood_pressure_diastolic.id_for_label }}" class="form-label">
+                                        {{ form.blood_pressure_diastolic.label }}
+                                    </label>
+                                    {{ form.blood_pressure_diastolic }}
+                                    <div class="form-text">{{ form.blood_pressure_diastolic.help_text }}</div>
+                                    {% if form.blood_pressure_diastolic.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.blood_pressure_diastolic.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Family History -->
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.family_history }}
+                                    <label class="form-check-label" for="{{ form.family_history.id_for_label }}">
+                                        {{ form.family_history.label }}
+                                    </label>
+                                </div>
+                                <div class="form-text">{{ form.family_history.help_text }}</div>
+                                {% if form.family_history.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.family_history.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Form Errors -->
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Submit Button -->
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg btn-custom" id="submitBtn">
+                                <i class="bi bi-cpu"></i> Analyze & Predict Risk
+                            </button>
+                        </div>
+                        
+                        <!-- Loading indicator -->
+                        <div id="loadingIndicator" class="text-center mt-3" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Processing your data... This may take a few moments.</p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Help Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6><i class="bi bi-info-circle"></i> Tips for Best Results</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Fingerprint Image:</h6>
+                            <ul class="small">
+                                <li>Use good lighting</li>
+                                <li>Ensure the fingerprint is clear and complete</li>
+                                <li>Avoid blurry or dark images</li>
+                                <li>Center the fingerprint in the image</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Health Data:</h6>
+                            <ul class="small">
+                                <li>Provide accurate measurements</li>
+                                <li>Use recent blood pressure readings</li>
+                                <li>Calculate BMI accurately</li>
+                                <li>Include family diabetes history</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('{{ form.fingerprint_image.id_for_label }}');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const form = document.getElementById('predictionForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    // File input styling
+    fileInput.style.display = 'none';
+    
+    // Upload area click handler
+    uploadArea.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    // Drag and drop handlers
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.style.backgroundColor = '#e3f2fd';
+        this.style.borderColor = '#2196f3';
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.style.backgroundColor = '#f8f9fa';
+        this.style.borderColor = '#007bff';
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.backgroundColor = '#f8f9fa';
+        this.style.borderColor = '#007bff';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect(files[0]);
+        }
+    });
+    
+    // File input change handler
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+    
+    // Handle file selection
+    function handleFileSelect(file) {
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a JPEG or PNG image file.');
+            return;
+        }
+        
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB.');
+            return;
+        }
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            imagePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Form submission handler
+    form.addEventListener('submit', function(e) {
+        // Show loading indicator
+        submitBtn.style.display = 'none';
+        loadingIndicator.style.display = 'block';
+        
+        // Disable form inputs
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => input.disabled = true);
+    });
+    
+    // BMI validation
+    const bmiInput = document.getElementById('{{ form.bmi.id_for_label }}');
+    bmiInput.addEventListener('blur', function() {
+        const bmi = parseFloat(this.value);
+        if (bmi && (bmi < 10 || bmi > 50)) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    });
+    
+    // Blood pressure validation
+    function validateBloodPressure() {
+        const systolic = parseInt(document.getElementById('{{ form.blood_pressure_systolic.id_for_label }}').value);
+        const diastolic = parseInt(document.getElementById('{{ form.blood_pressure_diastolic.id_for_label }}').value);
+        
+        if (systolic && diastolic && systolic <= diastolic) {
+            document.getElementById('{{ form.blood_pressure_systolic.id_for_label }}').classList.add('is-invalid');
+            document.getElementById('{{ form.blood_pressure_diastolic.id_for_label }}').classList.add('is-invalid');
+        } else {
+            document.getElementById('{{ form.blood_pressure_systolic.id_for_label }}').classList.remove('is-invalid');
+            document.getElementById('{{ form.blood_pressure_diastolic.id_for_label }}').classList.remove('is-invalid');
+        }
+    }
+    
+    document.getElementById('{{ form.blood_pressure_systolic.id_for_label }}').addEventListener('blur', validateBloodPressure);
+    document.getElementById('{{ form.blood_pressure_diastolic.id_for_label }}').addEventListener('blur', validateBloodPressure);
+});
+</script>
+{% endblock %}

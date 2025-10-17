@@ -1,0 +1,482 @@
+{% extends 'base.html' %}
+
+{% block title %}Prediction Result - Diabetes Assessment{% endblock %}
+
+{% block extra_css %}
+<style>
+.risk-gauge {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    position: relative;
+    margin: 0 auto;
+}
+
+.risk-low { background: conic-gradient(#28a745 0deg 120deg, #e9ecef 120deg 360deg); }
+.risk-medium { background: conic-gradient(#ffc107 0deg 180deg, #e9ecef 180deg 360deg); }
+.risk-high { background: conic-gradient(#dc3545 0deg 240deg, #e9ecef 240deg 360deg); }
+
+.risk-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 50%;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.fingerprint-preview {
+    max-width: 300px;
+    max-height: 300px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.metric-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+}
+
+.recommendation-card {
+    border-left: 4px solid #007bff;
+    background: #f8f9fa;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'fingerprint_pred:home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'fingerprint_pred:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Prediction Result</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-clipboard-check"></i> Diabetes Risk Assessment</h2>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="bi bi-printer"></i> Print
+                    </button>
+                    <button class="btn btn-outline-success" onclick="shareResult()">
+                        <i class="bi bi-share"></i> Share
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Risk Assessment Gauge -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header text-center">
+                    <h5><i class="bi bi-speedometer2"></i> Risk Level</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="risk-gauge risk-{{ record.predicted_risk|lower }}">
+                        <div class="risk-center">
+                            <h3 class="mb-1 {% if record.predicted_risk == 'Low' %}text-success{% elif record.predicted_risk == 'Medium' %}text-warning{% else %}text-danger{% endif %}">
+                                {{ record.predicted_risk|default:"Processing" }}
+                            </h3>
+                            {% if record.confidence_score %}
+                            <small class="text-muted">{{ record.confidence_score|floatformat:1 }}% confidence</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <div class="progress" style="height: 8px;">
+                            {% if record.predicted_risk == 'Low' %}
+                                <div class="progress-bar bg-success" style="width: 33%"></div>
+                            {% elif record.predicted_risk == 'Medium' %}
+                                <div class="progress-bar bg-warning" style="width: 66%"></div>
+                            {% else %}
+                                <div class="progress-bar bg-danger" style="width: 100%"></div>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <small class="text-success">Low</small>
+                            <small class="text-warning">Medium</small>
+                            <small class="text-danger">High</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assessment Details -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="bi bi-info-circle"></i> Assessment Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="metric-card p-3 text-center">
+                                <i class="bi bi-calendar3" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2">Assessment Date</h6>
+                                <p class="mb-0">{{ record.created_at|date:"F d, Y" }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="metric-card p-3 text-center">
+                                <i class="bi bi-fingerprint" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2">Fingerprint Type</h6>
+                                <p class="mb-0">{{ record.fingerprint_type|default:"Analyzed" }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-speedometer text-primary" style="font-size: 1.5rem;"></i>
+                                    <h6 class="mt-2">BMI</h6>
+                                    <h4 class="text-primary">{{ record.bmi }}</h4>
+                                    <small class="text-muted">
+                                        {% if record.bmi < 18.5 %}Underweight
+                                        {% elif record.bmi < 25 %}Normal
+                                        {% elif record.bmi < 30 %}Overweight
+                                        {% else %}Obese
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-person text-info" style="font-size: 1.5rem;"></i>
+                                    <h6 class="mt-2">Age</h6>
+                                    <h4 class="text-info">{{ record.age }}</h4>
+                                    <small class="text-muted">years old</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-gender-{{ record.gender|lower }} text-success" style="font-size: 1.5rem;"></i>
+                                    <h6 class="mt-2">Gender</h6>
+                                    <h4 class="text-success">{{ record.gender }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fingerprint Analysis -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-image"></i> Fingerprint Analysis</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if record.fingerprint_image %}
+                        <img src="{{ record.fingerprint_image.url }}" alt="Fingerprint" class="fingerprint-preview img-fluid">
+                    {% else %}
+                        <div class="p-5 text-muted">
+                            <i class="bi bi-image" style="font-size: 4rem;"></i>
+                            <p class="mt-3">Fingerprint image not available</p>
+                        </div>
+                    {% endif %}
+                    
+                    {% if record.ridge_count or record.minutiae_count %}
+                    <div class="mt-3">
+                        <div class="row text-center">
+                            {% if record.ridge_count %}
+                            <div class="col-6">
+                                <h4 class="text-primary">{{ record.ridge_count }}</h4>
+                                <small class="text-muted">Ridge Count</small>
+                            </div>
+                            {% endif %}
+                            {% if record.minutiae_count %}
+                            <div class="col-6">
+                                <h4 class="text-info">{{ record.minutiae_count }}</h4>
+                                <small class="text-muted">Minutiae Points</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-lightbulb"></i> Recommendations</h5>
+                </div>
+                <div class="card-body">
+                    {% if record.predicted_risk == 'Low' %}
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            <strong>Great news!</strong> Your assessment indicates a low risk for diabetes.
+                        </div>
+                        
+                        <div class="recommendation-card p-3 mb-3">
+                            <h6><i class="bi bi-heart"></i> Maintain Your Health</h6>
+                            <ul class="mb-0">
+                                <li>Continue your current healthy lifestyle</li>
+                                <li>Regular exercise (30 minutes daily)</li>
+                                <li>Balanced diet with whole foods</li>
+                                <li>Annual health check-ups</li>
+                            </ul>
+                        </div>
+                        
+                    {% elif record.predicted_risk == 'Medium' %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Moderate Risk:</strong> Consider preventive measures.
+                        </div>
+                        
+                        <div class="recommendation-card p-3 mb-3">
+                            <h6><i class="bi bi-shield-check"></i> Prevention Steps</h6>
+                            <ul class="mb-0">
+                                <li>Increase physical activity</li>
+                                <li>Monitor blood sugar regularly</li>
+                                <li>Maintain healthy weight</li>
+                                <li>Limit processed foods and sugars</li>
+                                <li>Consult healthcare provider</li>
+                            </ul>
+                        </div>
+                        
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-circle"></i>
+                            <strong>High Risk:</strong> Immediate consultation recommended.
+                        </div>
+                        
+                        <div class="recommendation-card p-3 mb-3">
+                            <h6><i class="bi bi-hospital"></i> Urgent Actions</h6>
+                            <ul class="mb-0">
+                                <li><strong>See a doctor immediately</strong></li>
+                                <li>Get comprehensive blood tests</li>
+                                <li>Start dietary modifications</li>
+                                <li>Begin exercise program (as advised)</li>
+                                <li>Monitor symptoms closely</li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            This assessment is for informational purposes only and should not replace professional medical advice.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'fingerprint_pred:upload_fingerprint' %}" class="btn btn-primary w-100">
+                                <i class="bi bi-plus-circle"></i> New Assessment
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'fingerprint_pred:dashboard' %}" class="btn btn-outline-secondary w-100">
+                                <i class="bi bi-arrow-left"></i> Back to Dashboard
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-outline-info w-100" onclick="scheduleReminder()">
+                                <i class="bi bi-calendar-plus"></i> Set Reminder
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-outline-success w-100" onclick="downloadReport()">
+                                <i class="bi bi-download"></i> Download Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reminder Modal -->
+<div class="modal fade" id="reminderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Set Health Check Reminder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reminderForm">
+                    <div class="mb-3">
+                        <label for="reminderDate" class="form-label">Reminder Date</label>
+                        <input type="date" class="form-control" id="reminderDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reminderType" class="form-label">Reminder Type</label>
+                        <select class="form-select" id="reminderType">
+                            <option value="checkup">Regular Check-up</option>
+                            <option value="retest">Follow-up Assessment</option>
+                            <option value="bloodwork">Blood Work</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reminderNotes" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="reminderNotes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveReminder()">Set Reminder</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function shareResult() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Diabetes Risk Assessment Result',
+            text: 'My diabetes risk assessment shows: {{ record.predicted_risk }} risk level',
+            url: window.location.href
+        });
+    } else {
+        // Fallback - copy to clipboard
+        const url = window.location.href;
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Result link copied to clipboard!');
+        });
+    }
+}
+
+function scheduleReminder() {
+    const modal = new bootstrap.Modal(document.getElementById('reminderModal'));
+    // Set default date to 3 months from now
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 3);
+    document.getElementById('reminderDate').value = futureDate.toISOString().split('T')[0];
+    modal.show();
+}
+
+function saveReminder() {
+    const date = document.getElementById('reminderDate').value;
+    const type = document.getElementById('reminderType').value;
+    const notes = document.getElementById('reminderNotes').value;
+    
+    // In a real app, this would save to the backend
+    localStorage.setItem('healthReminder', JSON.stringify({
+        date: date,
+        type: type,
+        notes: notes,
+        recordId: {{ record.id }}
+    }));
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('reminderModal'));
+    modal.hide();
+    
+    alert(`Reminder set for ${date}! We'll notify you about your ${type}.`);
+}
+
+function downloadReport() {
+    const reportContent = `
+DIABETES RISK ASSESSMENT REPORT
+================================
+
+Patient Information:
+- Assessment Date: {{ record.created_at|date:"F d, Y" }}
+- Age: {{ record.age }} years
+- Gender: {{ record.gender }}
+- BMI: {{ record.bmi }}
+
+Assessment Results:
+- Risk Level: {{ record.predicted_risk|default:"Processing" }}
+{% if record.confidence_score %}- Confidence: {{ record.confidence_score|floatformat:1 }}%{% endif %}
+- Fingerprint Type: {{ record.fingerprint_type|default:"Analyzed" }}
+{% if record.ridge_count %}- Ridge Count: {{ record.ridge_count }}{% endif %}
+{% if record.minutiae_count %}- Minutiae Points: {{ record.minutiae_count }}{% endif %}
+
+Recommendations:
+{% if record.predicted_risk == 'Low' %}
+✓ Continue current healthy lifestyle
+✓ Regular exercise (30 minutes daily)
+✓ Balanced diet with whole foods
+✓ Annual health check-ups
+{% elif record.predicted_risk == 'Medium' %}
+⚠ Increase physical activity
+⚠ Monitor blood sugar regularly
+⚠ Maintain healthy weight
+⚠ Limit processed foods and sugars
+⚠ Consult healthcare provider
+{% else %}
+🚨 See a doctor immediately
+🚨 Get comprehensive blood tests
+🚨 Start dietary modifications
+🚨 Begin exercise program (as advised)
+🚨 Monitor symptoms closely
+{% endif %}
+
+DISCLAIMER: This assessment is for informational purposes only and should not replace professional medical advice.
+
+Generated by: Fingerprint-Based Diabetes Prediction System
+Report ID: {{ record.id }}
+    `;
+    
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `diabetes_assessment_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Print-specific styling
+window.addEventListener('beforeprint', function() {
+    document.body.classList.add('printing');
+});
+
+window.addEventListener('afterprint', function() {
+    document.body.classList.remove('printing');
+});
+</script>
+
+<style>
+@media print {
+    .btn, .breadcrumb, .modal { display: none !important; }
+    .card { border: 1px solid #dee2e6 !important; }
+    .risk-gauge { print-color-adjust: exact; }
+}
+</style>
+{% endblock %}
